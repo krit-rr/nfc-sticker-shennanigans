@@ -1,0 +1,19 @@
+{
+  "name": "@tap/ndef",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure-TypeScript NDEF encode/decode plus NFC tag capacity math. Zero runtime deps; shared by mobile and web.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

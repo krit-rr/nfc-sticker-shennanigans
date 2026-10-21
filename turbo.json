@@ -1,0 +1,20 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "globalEnv": ["NEXT_PUBLIC_*", "TAP_*", "APPLE_TEAM_ID", "ANDROID_SHA256_CERT_FINGERPRINT"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "interactive": true
+    },
+    "lint": {},
+    "typecheck": {},
+    "test": {}
+  },
+  "globalPassThroughEnv": ["TMPDIR"]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "nfc-sticker-shennanigans",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@9.12.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "mobile": "pnpm --filter @tap/mobile start",
+    "web": "pnpm --filter @tap/web dev",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "turbo run lint typecheck test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.11.5",
+    "typescript": "~6.0.3"
+  },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "current"
+      ],
+      "cpu": [
+        "current",
+        "arm64"
+      ]
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "expo": {
+    "name": "Tap",
+    "slug": "tap",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tap",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.example.tap",
+      "supportsTablet": false,
+      "associatedDomains": ["applinks:tap.example.com"],
+      "infoPlist": {
+        "NFCReaderUsageDescription": "Tap a sticker to stop an alarm, check off a routine step, or share your card."
+      }
+    },
+    "android": {
+      "package": "com.example.tap",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "tap.example.com",
+              "pathPrefix": "/t/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "Tap a sticker to stop an alarm, check off a routine step, or share your card.",
+          "includeNdefEntitlement": true
+        }
+      ],
+      [
+        "./plugins/with-nfc-intent-filter.js",
+        {
+          "host": "tap.example.com",
+          "pathPrefix": "/t/"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "tagBaseUrl": "https://tap.example.com"
+    }
+  }
+}

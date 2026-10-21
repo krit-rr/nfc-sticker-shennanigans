@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# turborepo
+.turbo/
+
+# build output
+dist/
+coverage/
+
+# env
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+*.log
+.idea/
