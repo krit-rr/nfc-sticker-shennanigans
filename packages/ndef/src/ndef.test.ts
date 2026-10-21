@@ -56,7 +56,7 @@ describe("message", () => {
       uriRecord("https://tap.example.com/t/abc"),
       textRecord("Bathroom sink", "en"),
       mimeRecord("text/vcard", "BEGIN:VCARD\r\nEND:VCARD\r\n"),
-      androidApplicationRecord("com.example.tap"),
+      androidApplicationRecord("com.kritika.tap"),
     ];
     const encoded = encodeMessage(records);
     const decoded = decodeMessage(encoded);
@@ -67,7 +67,7 @@ describe("message", () => {
     expect(decoded[2]).toMatchObject({ type: "mime", mimeType: "text/vcard" });
     expect(decoded[3]).toMatchObject({ type: "external", domain: "android.com", name: "pkg" });
     expect(new TextDecoder().decode((decoded[3] as { data: Uint8Array }).data)).toBe(
-      "com.example.tap",
+      "com.kritika.tap",
     );
 
     expect(encoded[0]! & 0x80).toBe(0x80); // first record: MB

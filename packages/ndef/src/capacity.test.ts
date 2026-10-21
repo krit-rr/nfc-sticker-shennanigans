@@ -7,7 +7,7 @@ describe("capacity", () => {
   it("a normal tag URL plus an Android app record fits on the cheapest sticker", () => {
     const result = fitsOn("ntag213", [
       uriRecord("https://tap.example.com/t/7k3m9x2a"),
-      androidApplicationRecord("com.example.tap"),
+      androidApplicationRecord("com.kritika.tap"),
     ]);
     expect(result.fits).toBe(true);
     expect(result.headroom).toBeGreaterThan(50);

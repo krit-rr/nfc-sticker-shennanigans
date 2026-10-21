@@ -49,7 +49,7 @@ deep link; `/c/<slug>` is the business card.
    `?mode=developer` on the entitlement during development.
 3. Android: `apps/web` serves `/.well-known/assetlinks.json` with the signing certificate fingerprint
    (`ANDROID_SHA256_CERT_FINGERPRINT`, from `keytool -list -v`). The intent filter has `autoVerify`.
-4. Check with `adb shell pm get-app-links com.example.tap` (Android) and the Apple Search Console
+4. Check with `adb shell pm get-app-links com.kritika.tap` (Android) and the Apple Search Console
    / `swcutil` (macOS) for iOS.
 
 ## Testing without hardware

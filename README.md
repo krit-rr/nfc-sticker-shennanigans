@@ -53,7 +53,7 @@ asks for a signing certificate; the script drives `xcodebuild` directly (see `ap
 
 - Replace the placeholder host `tap.example.com` in `apps/mobile/app.json` (`extra.tagBaseUrl`,
   `ios.associatedDomains`, `android.intentFilters`) and `apps/web/src/lib/site.ts`.
-- Replace the placeholder ids `com.example.tap` (`app.json` and `apps/web/src/lib/site.ts`).
+- Replace the placeholder ids `com.kritika.tap` (`app.json` and `apps/web/src/lib/site.ts`).
 - Deploy the web app with `APPLE_TEAM_ID` and `ANDROID_SHA256_CERT_FINGERPRINT` set so universal links
   and app links verify.
 

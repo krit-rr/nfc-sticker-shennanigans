@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.example.tap",
+      "bundleIdentifier": "com.kritika.tap",
       "supportsTablet": false,
       "associatedDomains": ["applinks:tap.example.com"],
       "infoPlist": {
@@ -18,7 +18,7 @@
       }
     },
     "android": {
-      "package": "com.example.tap",
+      "package": "com.kritika.tap",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
