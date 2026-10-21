@@ -1,0 +1,341 @@
+diff --git a/apple/Sources/ExpoModulesJSI/Protocols/JSIRepresentable.swift b/apple/Sources/ExpoModulesJSI/Protocols/JSIRepresentable.swift
+index 1553863da2c7134a424178b83690d41683e5d06d..4de3701cdca27e305a5941e37766ea74cae02a1d 100644
+--- a/apple/Sources/ExpoModulesJSI/Protocols/JSIRepresentable.swift
++++ b/apple/Sources/ExpoModulesJSI/Protocols/JSIRepresentable.swift
+@@ -3,6 +3,11 @@ internal import ExpoModulesJSI_Cxx
+ internal import jsi
+ 
+ /// A type whose values can be represented as `facebook.jsi.Value`.
++///
++/// Mark conformances of generic types with `@_spi(Internal)`. Otherwise, because this protocol
++/// is internal and `~Copyable`, Swift 6.4 prints placeholder conformances constrained to
++/// `_ConstraintThatIsNotPartOfTheAPIOfThisLibrary` into the public `.swiftinterface`,
++/// which external consumers can't read. Fixed upstream in swiftlang/swift#91076.
+ internal protocol JSIRepresentable: JavaScriptRepresentable, Sendable, ~Copyable {
+   /// Creates an instance of this type from the given `facebook.jsi.Value` in `facebook.jsi.IRuntime`.
+   static func fromJSIValue(_ value: borrowing facebook.jsi.Value, in runtime: facebook.jsi.IRuntime) -> Self
+@@ -106,6 +111,7 @@ extension String: JSIRepresentable {
+   }
+ }
+ 
++@_spi(Internal)
+ extension Optional: JSIRepresentable where Wrapped: JSIRepresentable {
+   static func fromJSIValue(_ value: borrowing facebook.jsi.Value, in runtime: facebook.jsi.IRuntime) -> Self {
+     if value.isNull() || value.isUndefined() {
+@@ -119,6 +125,7 @@ extension Optional: JSIRepresentable where Wrapped: JSIRepresentable {
+   }
+ }
+ 
++@_spi(Internal)
+ extension Array: JSIRepresentable where Element: JSIRepresentable {
+   static func fromJSIValue(_ value: borrowing facebook.jsi.Value, in runtime: facebook.jsi.IRuntime) -> [Element] {
+     let jsiArray = value.getObject(runtime).getArray(runtime)
+@@ -143,6 +150,7 @@ extension Array: JSIRepresentable where Element: JSIRepresentable {
+   }
+ }
+ 
++@_spi(Internal)
+ extension Dictionary: JSIRepresentable where Key == String, Value: JSIRepresentable {
+   static func fromJSIValue(_ value: borrowing facebook.jsi.Value, in runtime: facebook.jsi.IRuntime) -> [Key: Value] {
+     let object = value.getObject(runtime)
+diff --git a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRef.swift b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRef.swift
+index 04b1dfc9dfb218ac6c65246a0e0e9da94c4fc388..f013f770ed4e82a38a95cae5f78bb85daf620e4e 100644
+--- a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRef.swift
++++ b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRef.swift
+@@ -89,6 +89,7 @@ extension JavaScriptRef: JavaScriptRepresentable where T: JavaScriptRepresentabl
+   }
+ }
+ 
++@_spi(Internal)
+ extension JavaScriptRef: JSIRepresentable where T: JSIRepresentable & ~Copyable {
+   static func fromJSIValue(_ value: borrowing facebook.jsi.Value, in runtime: facebook.jsi.IRuntime) -> JavaScriptRef {
+     FatalError.unimplemented()
+diff --git a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+index 3d796eea39a39f6b20a9ebb83b70d7eb2c8b6104..6b16a7c321ab258d3e447536bf8ef611f0cd87f2 100644
+--- a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
++++ b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+@@ -62,7 +62,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+   internal init(_ runtime: facebook.jsi.Runtime) {
+     self.runtimePointee = runtime
+     self.pointee = expo.iruntime(runtime)
+-    self.scheduler = expo.RuntimeScheduler()
++    self.scheduler = expo.RuntimeScheduler.create()
+     self.ownsRuntime = false
+     installLongLivedObjectsTeardown()
+   }
+@@ -73,7 +73,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+     let runtime = expo.createHermesRuntime()
+     self.runtimePointee = runtime
+     self.pointee = expo.iruntime(runtime)
+-    self.scheduler = expo.RuntimeScheduler()
++    self.scheduler = expo.RuntimeScheduler.create()
+     self.ownsRuntime = true
+     installLongLivedObjectsTeardown()
+   }
+@@ -85,7 +85,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+     let runtime = unsafeBitCast(unsafePointer, to: facebook.jsi.Runtime.self)
+     self.runtimePointee = runtime
+     self.pointee = expo.iruntime(runtime)
+-    self.scheduler = expo.RuntimeScheduler()
++    self.scheduler = expo.RuntimeScheduler.create()
+     self.ownsRuntime = false
+     installLongLivedObjectsTeardown()
+   }
+@@ -112,7 +112,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+     let fn = unsafeBitCast(dispatch, to: expo.RuntimeScheduler.ScheduleFn.self)
+     self.runtimePointee = runtime
+     self.pointee = expo.iruntime(runtime)
+-    self.scheduler = expo.RuntimeScheduler(scheduler, fn)
++    self.scheduler = expo.RuntimeScheduler.create(scheduler, fn)
+     self.ownsRuntime = false
+     installLongLivedObjectsTeardown()
+   }
+@@ -185,12 +185,12 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+       resultPtr: UnsafeMutablePointer<facebook.jsi.Value>
+     ) -> Bool {
+       let propertyName = String(cString: propertyName)
+-      nonisolated(unsafe) let resultPtr = resultPtr
++      let resultPtr = UncheckedSendable(resultPtr)
+ 
+       return withGuaranteedContext(context) { (context: HostObjectContext, runtime) in
+         return JavaScriptActor.assumeIsolated {
+           return forwardingSwiftErrorsToJS(runtime: runtime) {
+-            try context.get(propertyName).writeJSIValue(to: resultPtr)
++            try context.get(propertyName).writeJSIValue(to: resultPtr.value)
+           }
+         }
+       }
+@@ -771,22 +771,22 @@ private func createFunctionClosure(
+     // heap-allocated `JavaScriptRef` (Swift 6.2 rejects capturing/consuming a `~Copyable` value in the
+     // escaping closure that `withoutActuallyEscaping` synthesizes), the closure constructs the buffer
+     // locally from the raw pointer + count. Those are read-only call-scoped inputs that never outlive the
+-    // synchronous call, so the `nonisolated(unsafe)` capture is sound. This removes a per-call class
++    // synchronous call, so capturing them through `UncheckedSendable` is sound. This removes a per-call class
+     // allocation + retain/release + dealloc that profiling showed dominating the no-op `@JS` host-call
+     // floor.
+-    nonisolated(unsafe) let thisPtr = thisPtr
+-    nonisolated(unsafe) let argumentsPtr = argumentsPtr
+-    nonisolated(unsafe) let resultPtr = resultPtr
++    let thisPtr = UncheckedSendable(thisPtr)
++    let argumentsPtr = UncheckedSendable(argumentsPtr)
++    let resultPtr = UncheckedSendable(resultPtr)
+ 
+     // See `withGuaranteedContext` for why neither the context nor the runtime is retained here, and
+     // why the result is written to the caller's slot instead of being returned.
+     return withGuaranteedContext(context) { (context: HostFunctionContext, runtime) in
+       return JavaScriptActor.assumeIsolated {
+         return forwardingSwiftErrorsToJS(runtime: runtime) {
+-          let this = UnsafeMutablePointer(mutating: thisPtr).move()
+-          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr, count: argumentsCount)
++          let this = UnsafeMutablePointer(mutating: thisPtr.value).move()
++          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr.value, count: argumentsCount)
+           let thisValue = JavaScriptValue(runtime, this)
+-          try context.call(thisValue, consume arguments).writeJSIValue(to: resultPtr)
++          try context.call(thisValue, consume arguments).writeJSIValue(to: resultPtr.value)
+         }
+       }
+     }
+@@ -817,18 +817,18 @@ private func createFunctionClosure(
+     // handed in as a borrowed `JavaScriptUnownedValue` pointing straight at the C++-owned `this` slot:
+     // it is not moved out and no owning `JavaScriptValue` is allocated, so the closure avoids the
+     // per-call `weak`-runtime form/destroy and heap object that the owning `this` pays.
+-    nonisolated(unsafe) let thisPtr = thisPtr
+-    nonisolated(unsafe) let argumentsPtr = argumentsPtr
+-    nonisolated(unsafe) let resultPtr = resultPtr
++    let thisPtr = UncheckedSendable(thisPtr)
++    let argumentsPtr = UncheckedSendable(argumentsPtr)
++    let resultPtr = UncheckedSendable(resultPtr)
+ 
+     // See `withGuaranteedContext` for why neither the context nor the runtime is retained here, and
+     // why the result is written to the caller's slot instead of being returned.
+     return withGuaranteedContext(context) { (context: UnownedThisHostFunctionContext, runtime) in
+       return JavaScriptActor.assumeIsolated {
+         return forwardingSwiftErrorsToJS(runtime: runtime) {
+-          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr, count: argumentsCount)
+-          let thisValue = JavaScriptUnownedValue(runtime.pointee, thisPtr)
+-          try context.call(thisValue, consume arguments).writeJSIValue(to: resultPtr)
++          let arguments = JavaScriptValuesBuffer(runtime, start: argumentsPtr.value, count: argumentsCount)
++          let thisValue = JavaScriptUnownedValue(runtime.pointee, thisPtr.value)
++          try context.call(thisValue, consume arguments).writeJSIValue(to: resultPtr.value)
+         }
+       }
+     }
+diff --git a/apple/Sources/ExpoModulesJSI/Utilities/UncheckedSendable.swift b/apple/Sources/ExpoModulesJSI/Utilities/UncheckedSendable.swift
+new file mode 100644
+index 0000000000000000000000000000000000000000..25e0db0e34f179447be707792a4fb3c101b3f2f4
+--- /dev/null
++++ b/apple/Sources/ExpoModulesJSI/Utilities/UncheckedSendable.swift
+@@ -0,0 +1,13 @@
++/// Immutable wrapper that makes a non-Sendable value capturable by a `@Sendable` closure without compiler enforcement.
++/// Unlike `NonisolatedUnsafeVar`, it is a struct, so wrapping a value doesn't allocate.
++///
++/// Use it instead of a `nonisolated(unsafe) let` local captured by such a closure: Swift 6.2 still reports
++/// "sending '...' risks causing data races" for those, while a capture of a `Sendable` value passes on every version.
++/// The caller is responsible for making sure the value is never accessed concurrently.
++internal struct UncheckedSendable<Value>: @unchecked Sendable {
++  let value: Value
++
++  init(_ value: Value) {
++    self.value = value
++  }
++}
+diff --git a/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h b/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+index 6115e87a6e430f55570fbf759283dca0cca1ee80..8e1a46c1a59c2abc751bf4dfe762537c8adec1b0 100644
+--- a/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
++++ b/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+@@ -44,21 +44,34 @@ private:
+ 
+   std::atomic<int> refCount{1};
+ 
++  RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept
++      : nativeScheduler(scheduler), scheduleFn(fn) {}
++
++  RuntimeScheduler() noexcept {}
++
+ public:
++  // Swift creates instances through the static `create` functions rather than the constructors.
++  // Annotating the constructors with `SWIFT_RETURNS_RETAINED` silences the Swift 6.4 "cannot infer
++  // ownership" warning, but Swift 6.2 rejects that annotation on a constructor as an error. Static
++  // functions returning a shared reference accept the annotation on every Swift version.
++
+   /**
+-   Constructs a scheduler bound to a host-provided native RuntimeScheduler.
++   Creates a scheduler bound to a host-provided native RuntimeScheduler.
+    `scheduleTask` dispatches through `fn`, which the host implements against
+    the real react::RuntimeScheduler.
+    */
+-  SWIFT_RETURNS_RETAINED RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept
+-      : nativeScheduler(scheduler), scheduleFn(fn) {}
++  static RuntimeScheduler *create(void *scheduler, ScheduleFn fn) noexcept SWIFT_RETURNS_RETAINED {
++    return new RuntimeScheduler(scheduler, fn);
++  }
+ 
+   /**
+-   Constructs a no-op scheduler. Scheduled tasks run synchronously on the
++   Creates a no-op scheduler. Scheduled tasks run synchronously on the
+    caller's thread — intended for standalone runtimes (e.g. tests) that have
+    no React scheduler.
+    */
+-  SWIFT_RETURNS_RETAINED RuntimeScheduler() {}
++  static RuntimeScheduler *create() noexcept SWIFT_RETURNS_RETAINED {
++    return new RuntimeScheduler();
++  }
+ 
+   RuntimeScheduler(const RuntimeScheduler &) = delete;
+ 
+diff --git a/apple/scripts/build-xcframework.sh b/apple/scripts/build-xcframework.sh
+index 4c506533866d411b18799e5441f02c2b3e9a0c44..1e5e72321cb3835108841e07e890a493b41b3618 100755
+--- a/apple/scripts/build-xcframework.sh
++++ b/apple/scripts/build-xcframework.sh
+@@ -35,6 +35,13 @@ SPM_BUILD_PATH="${PACKAGE_DIR}/.build"
+ SPM_WORKSPACE_PATH="${PACKAGE_DIR}/.swiftpm"
+ BUILD_PRODUCTS_PATH="${DERIVED_DATA_PATH}/Build/Products"
+ 
++# Swift compatibility archives linked into this framework (libswiftCompatibilityPacks.a) export
++# their symbols with Xcode 26.4 (Xcode 27 hides them). A precompiled expo-modules-core then binds
++# _swift_allocateMetadataPack to this framework, and crashes at launch when the user's Xcode
++# rebuilds this framework without the export.
++# ld documents wildcards for symbol list files only, hence the list file.
++UNEXPORTED_SYMBOLS_LIST="${PACKAGE_DIR}/scripts/unexported-swift-runtime-symbols.txt"
++
+ source "${PACKAGE_DIR}/scripts/xcframework-helpers.sh"
+ 
+ resolve_pods_root "$PACKAGE_DIR"
+@@ -77,6 +84,7 @@ SOURCE_FILES=(
+   "${PACKAGE_DIR}/scripts/build-xcframework.sh"
+   "${PACKAGE_DIR}/scripts/create-stub-xcframework.sh"
+   "${PACKAGE_DIR}/scripts/xcframework-helpers.sh"
++  "${UNEXPORTED_SYMBOLS_LIST}"
+   # JSI headers we compile against. `cat` follows the symlinks CocoaPods
+   # installs into Pods/Headers/Public so the real header contents get hashed.
+   "${PODS_ROOT}/Headers/Public/React-jsi/jsi/jsi.h"
+@@ -107,6 +115,12 @@ compute_hash() {
+     # source problems. swiftc --version reports the swiftlang/clang tags and the
+     # target triple, so any toolchain change forces a clean rebuild.
+     echo "TOOLCHAIN_VERSION=$(xcrun swiftc --version 2>/dev/null || true)"
++    # Xcode releases can share a Swift compiler but ship different SDKs (Xcode
++    # 27.0 and 27.1 print the same swiftc --version). A binary module records the
++    # SDK it was built against and Swift won't load it with another SDK, so every
++    # importer would compile ExpoModulesJSI again from its stripped
++    # .swiftinterface. Key the cache on the Xcode build, which pins its SDKs.
++    echo "XCODE_VERSION=$(xcodebuild -version 2>/dev/null || true)"
+     echo "$all_files" | LC_ALL=C sort | while IFS= read -r file; do
+       echo "$file"
+       cat "$file"
+@@ -195,6 +209,9 @@ build_slice() {
+   # publish pipeline targeting a specific Xcode) and the in-Xcode build phase when
+   # the running Xcode differs from the global one.
+   #
++  # TOOLCHAINS is forwarded the same way so the nested build uses the same Swift toolchain
++  # as compute_hash and the app build, not the default toolchain.
++  #
+   # SYMROOT/OBJROOT are pinned explicitly because Xcode emits
+   # "Supported platforms for the buildables in the current scheme is empty" for
+   # an auto-generated SwiftPM scheme and then ignores -derivedDataPath when
+@@ -212,10 +229,18 @@ build_slice() {
+   # `___profc_*` symbols and `__llvm_prf_*` sections) plus ~40% extra binary size. Setting
+   # CLANG_COVERAGE_MAPPING=NO is what removes the flags; CLANG_ENABLE_CODE_COVERAGE=NO alone
+   # does not, and `-enableCodeCoverage NO` is rejected outside of `test`.
++  #
++  # With a dSYM, Xcode's default STRIP_SWIFT_SYMBOLS=YES runs `strip -T`, which removes or renames to
++  # `<redacted>` every Swift symbol that isn't exported. Crash reports symbolicated on the device then
++  # show no function name for any frame in this framework. Keeping the symbols adds about 250 KB of
++  # symbol table to the device slice; the code itself doesn't change.
+   local env_args=(PATH="$PATH" HOME="$HOME" PODS_ROOT="$PODS_ROOT" RN_ROOT="$RN_ROOT")
+   if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+     env_args+=(DEVELOPER_DIR="$DEVELOPER_DIR")
+   fi
++  if [[ -n "${TOOLCHAINS:-}" ]]; then
++    env_args+=(TOOLCHAINS="$TOOLCHAINS")
++  fi
+ 
+   (cd "$PACKAGE_DIR" && env -i "${env_args[@]}" \
+     xcodebuild \
+@@ -235,10 +260,12 @@ build_slice() {
+     BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+     SKIP_INSTALL=NO \
+     DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
++    STRIP_SWIFT_SYMBOLS=NO \
+     COMPILER_INDEX_STORE_ENABLE=NO \
+     SWIFT_COMPILATION_MODE=wholemodule \
+     CLANG_ENABLE_CODE_COVERAGE=NO \
+     CLANG_COVERAGE_MAPPING=NO \
++    "OTHER_LDFLAGS=\$(inherited) -Xlinker -unexported_symbols_list -Xlinker \"${UNEXPORTED_SYMBOLS_LIST}\"" \
+   )
+ 
+   local product_path="${BUILD_PRODUCTS_PATH}/${build_dir_name}"
+@@ -296,11 +323,17 @@ build_slice() {
+ 
+   # Strip declarations from public .swiftinterface that external consumers can't resolve:
+   # - C++ type extensions (__ObjC) — entire blocks including their closing braces
+-  #   e.g. "extension __ObjC.expo.CppError : Swift.Error { ... }"
++  #   e.g. "extension __ObjC.expo.CppError : Swift.Error { ... }", or with the module
++  #   selectors Swift 6.4 prints: "extension __ObjC::expo.__ObjC::CppError : Swift::Error { ... }"
+   # - Package-internal conformances (_ConstraintThatIsNotPartOfTheAPIOfThisLibrary)
+   #   e.g. "extension Swift.Optional : where Wrapped : _Constraint... {}"
+   # - @usableFromInline attributes preceding the _Constraint protocol definition
+   #   e.g. "@usableFromInline\ninternal protocol _ConstraintThatIsNotPartOfTheAPIOfThisLibrary {}"
++  # - @available(*, unavailable) attributes that Swift 6.4 prints on their own line before
++  #   those conformances, which would otherwise attach to the next declaration
++  #   e.g. "@available(*, unavailable)\nextension Swift::Optional : P where Wrapped : _Constraint... {}"
++  #   The JSIRepresentable conformances that produce them are marked @_spi, so Swift doesn't print
++  #   them today. Stripping them is a fallback for conformances added without @_spi.
+   # NOTE: If these patterns change in a future Swift version, the build will fail with
+   # "expected declaration" or "expected type" errors in the .swiftinterface file.
+   # Run plain `sed` to a temp file and move it back instead of `sed -i ''`:
+@@ -309,7 +342,7 @@ build_slice() {
+   # filename, failing with "can't read …: No such file or directory".
+   while IFS= read -r swiftinterface; do
+     local stripped_swiftinterface="${swiftinterface}.stripped"
+-    sed '/^extension __ObjC\./,/^}/d;/^@usableFromInline$/{N;/_ConstraintThatIsNotPartOfTheAPIOfThisLibrary/d;};/_ConstraintThatIsNotPartOfTheAPIOfThisLibrary/d' "$swiftinterface" > "$stripped_swiftinterface"
++    sed -E '/^extension __ObjC(\.|::)/,/^}/d;/^@usableFromInline$/{N;/_ConstraintThatIsNotPartOfTheAPIOfThisLibrary/d;};/^@available\(\*, unavailable\)$/{N;/_ConstraintThatIsNotPartOfTheAPIOfThisLibrary/d;};/_ConstraintThatIsNotPartOfTheAPIOfThisLibrary/d' "$swiftinterface" > "$stripped_swiftinterface"
+     mv "$stripped_swiftinterface" "$swiftinterface"
+   done < <(find "${modules_dir}/${PACKAGE_NAME}.swiftmodule" -name '*.swiftinterface')
+ 
+diff --git a/apple/scripts/unexported-swift-runtime-symbols.txt b/apple/scripts/unexported-swift-runtime-symbols.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..0954c66faf3d966d948e87bee91646db066bc95b
+--- /dev/null
++++ b/apple/scripts/unexported-swift-runtime-symbols.txt
+@@ -0,0 +1 @@
++_swift_*

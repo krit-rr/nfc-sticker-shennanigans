@@ -68,7 +68,8 @@
           "host": "tap.example.com",
           "pathPrefix": "/t/"
         }
-      ]
+      ],
+      "./plugins/with-source-built-expo-modules.js"
     ],
     "experiments": {
       "typedRoutes": true,
