@@ -68,11 +68,17 @@ whether it degrades to a no-op below iOS 26.
 | `react-native-nitro-ios-alarm-kit` 1.0.41 | May 2026     | Nitro module (iOS only)         | Schedule/stop, custom sounds; aimed at meditation timers, no Stop-event surface in the readme.                                                                                                       |
 | `rn-native-alarmkit` 0.1.13               | Nov 2025     | RN module, claims iOS + Android | One API over AlarmKit and AlarmManager with notification fallbacks — right shape for us eventually, but the oldest and the fallback can silently downgrade to notifications.                         |
 
-**Plan:** try `react-native-ios-alarmkit` first — freshest, built for Expo, and its state/stop events
-are what `scheduler.cancel()` and the "rings again at …" UI need. Keep `@klyftig/alarm-kit` as the
-backup: its Stop-re-ring is our nag chain in one call, worth revisiting once it has device mileage.
-Android stays the planned small Kotlin module (`setAlarmClock` + full-screen intent); check
-`rn-native-alarmkit`'s Android half for reference before writing it.
+**Wired in:** `react-native-ios-alarmkit` — freshest, built for Expo, and its state/stop events are
+what `scheduler.cancel()` and the "rings again at …" UI need. `apps/mobile/src/lib/alarm-scheduler.ts`
+turns each ring of the chain into its own fixed-date AlarmKit alarm (ids are UUIDs, kept in the
+document store under the domain alarm's id), the alert's secondary button is "I'm at the sticker"
+(opens the app), tapping the anchor sticker cancels the chain and disables dismissed one-shots, and
+every enabled alarm is rescheduled from the domain model at launch. **Not yet validated on a physical
+iPhone** — Stop-then-re-ring, authorization, and the secondary button all need a device pass.
+Keep `@klyftig/alarm-kit` as the backup: its Stop-re-ring is our nag chain in one call, worth
+revisiting once it has device mileage. Android stays the planned small Kotlin module
+(`setAlarmClock` + full-screen intent); check `rn-native-alarmkit`'s Android half for reference
+before writing it.
 
 If the first try disappoints, an Expo Module in Swift wrapping `AlarmManager.schedule(id:configuration:)`
 is ~200 lines, and it keeps the presentation strings and buttons under our control.

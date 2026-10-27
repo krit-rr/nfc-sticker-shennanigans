@@ -24,7 +24,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Fonts, Radius, Spacing } from "@/constants/theme";
 import { useNow } from "@/hooks/use-now";
 import { useTheme } from "@/hooks/use-theme";
-import { loggingScheduler } from "@/lib/alarm-scheduler";
+import { scheduler } from "@/lib/alarm-scheduler";
 import { loadAlarms, saveAlarms } from "@/lib/alarm-store";
 import { clock, clockDate, clockParts, countdown, weekdayShort } from "@/lib/format";
 
@@ -304,7 +304,7 @@ export default function AlarmsScreen() {
     update([alarm, ...alarms.filter((existing) => existing.id !== alarm.id)]);
     setLastSetId(alarm.id);
     const first = nextOccurrence(alarm, new Date());
-    if (first) void loggingScheduler.schedule(alarm, ringTimes(alarm, first));
+    if (first) void scheduler.schedule(alarm, ringTimes(alarm, first));
   };
 
   const toggle = (id: string, enabled: boolean) => {
@@ -312,13 +312,13 @@ export default function AlarmsScreen() {
     update(updated);
     const alarm = updated.find((candidate) => candidate.id === id);
     const first = alarm ? nextOccurrence(alarm, new Date()) : null;
-    if (alarm && first) void loggingScheduler.schedule(alarm, ringTimes(alarm, first));
-    else void loggingScheduler.cancel(id);
+    if (alarm && first) void scheduler.schedule(alarm, ringTimes(alarm, first));
+    else void scheduler.cancel(id);
   };
 
   const remove = (id: string) => {
     update(alarms.filter((alarm) => alarm.id !== id));
-    void loggingScheduler.cancel(id);
+    void scheduler.cancel(id);
   };
 
   const lastSet = alarms.find((alarm) => alarm.id === lastSetId && alarm.enabled);

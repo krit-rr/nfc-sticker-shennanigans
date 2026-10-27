@@ -14,7 +14,8 @@
       "supportsTablet": false,
       "associatedDomains": ["applinks:tap.example.com"],
       "infoPlist": {
-        "NFCReaderUsageDescription": "Tap a sticker to stop an alarm, check off a routine step, or share your card."
+        "NFCReaderUsageDescription": "Tap a sticker to stop an alarm, check off a routine step, or share your card.",
+        "NSAlarmKitUsageDescription": "Rings the alarms you set, including the follow-up rings that stop only at your sticker."
       }
     },
     "android": {
@@ -70,7 +71,8 @@
         }
       ],
       "./plugins/with-source-built-expo-modules.js",
-      "expo-sqlite"
+      "expo-sqlite",
+      "react-native-ios-alarmkit"
     ],
     "experiments": {
       "typedRoutes": true,
