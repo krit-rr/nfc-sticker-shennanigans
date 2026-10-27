@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 
 import { Colors } from "@/constants/theme";
+import { useAlarmBootstrap } from "@/hooks/use-alarm-bootstrap";
 import { useNfcBootstrap } from "@/hooks/use-nfc-bootstrap";
 import { useScheme } from "@/hooks/use-theme";
 
@@ -33,6 +34,7 @@ const navigationThemes = {
 export default function RootLayout() {
   const scheme = useScheme();
   useNfcBootstrap();
+  useAlarmBootstrap();
 
   return (
     <ThemeProvider value={navigationThemes[scheme]}>

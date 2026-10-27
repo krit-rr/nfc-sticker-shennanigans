@@ -2,11 +2,13 @@ import {
   applyTap,
   buildCardUrl,
   currentStep,
-  demoAlarms,
   demoRoutines,
+  nextOccurrence,
   normalizeTagId,
   progress,
+  ringTimes,
   startRun,
+  type Alarm,
   type Tag,
   type TapResult,
 } from "@tap/core";
@@ -22,6 +24,8 @@ import { Screen } from "@/components/screen";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { actionVisual, describeAction } from "@/lib/actions";
+import { scheduler } from "@/lib/alarm-scheduler";
+import { loadAlarms, saveAlarms } from "@/lib/alarm-store";
 import { TAG_BASE_URL } from "@/lib/config";
 import { registry } from "@/lib/registry";
 import { loadRun, saveRun } from "@/lib/run-store";
@@ -105,25 +109,8 @@ function PrototypeNote({ children }: { children: string }) {
 function Outcome({ tag }: { tag: Tag }) {
   const { action } = tag;
   switch (action.kind) {
-    case "alarm.dismiss": {
-      const alarms = demoAlarms.filter((alarm) => alarm.dismissTagId === tag.id);
-      return (
-        <>
-          <Banner
-            tone={alarms.length ? "success" : "neutral"}
-            icon={alarms.length ? "checkCircle" : "info"}
-            text={
-              alarms.length
-                ? `Stops: ${alarms.map((alarm) => alarm.label).join(", ")}.`
-                : "No alarm uses this sticker yet."
-            }
-          />
-          <PrototypeNote>
-            this tap will cancel the remaining rings once a real alarm is wired in.
-          </PrototypeNote>
-        </>
-      );
-    }
+    case "alarm.dismiss":
+      return <AlarmDismissOutcome tag={tag} />;
     case "routine.step":
       return <RoutineStepOutcome tag={tag} routineId={action.routineId} />;
     case "card.open": {
@@ -160,6 +147,56 @@ function Outcome({ tag }: { tag: Tag }) {
         </>
       );
   }
+}
+
+/**
+ * The product's core move: tapping the anchor sticker is the only thing that silences the
+ * whole nag chain. Cancels every pending ring of each alarm anchored to this tag, disables
+ * dismissed one-shots, and re-arms repeating alarms for their next occurrence.
+ */
+function AlarmDismissOutcome({ tag }: { tag: Tag }) {
+  const [dismissed, setDismissed] = useState<Alarm[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const alarms = await loadAlarms();
+      const anchored = alarms.filter((alarm) => alarm.dismissTagId === tag.id);
+      for (const alarm of anchored) await scheduler.cancel(alarm.id);
+
+      const oneShots = new Set(
+        anchored.filter((alarm) => alarm.repeatDays.length === 0).map((alarm) => alarm.id),
+      );
+      if (oneShots.size > 0) {
+        await saveAlarms(
+          alarms.map((alarm) => (oneShots.has(alarm.id) ? { ...alarm, enabled: false } : alarm)),
+        );
+      }
+      // A repeating alarm keeps its recurrence: re-arm the next occurrence's chain.
+      for (const alarm of anchored) {
+        if (alarm.repeatDays.length === 0 || !alarm.enabled) continue;
+        const next = nextOccurrence(alarm);
+        if (next) await scheduler.schedule(alarm, ringTimes(alarm, next));
+      }
+      if (!cancelled) setDismissed(anchored);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tag.id]);
+
+  if (!dismissed) return null;
+  return (
+    <Banner
+      tone={dismissed.length ? "success" : "neutral"}
+      icon={dismissed.length ? "checkCircle" : "info"}
+      text={
+        dismissed.length
+          ? `Dismissed: ${dismissed.map((alarm) => alarm.label).join(", ")}. All remaining rings are cancelled.`
+          : "No alarm uses this sticker yet."
+      }
+    />
+  );
 }
 
 /**
