@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.kritika.tap.alarm.TapAlarmModule"]
+  }
+}
