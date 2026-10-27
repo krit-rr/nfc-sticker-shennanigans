@@ -20,12 +20,12 @@ answer: _what does the sticker's location make easier?_
 | ----------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------ |
 | Get-out-of-bed alarm (must tap the sticker to stop; nag chain until then)                             | `alarm.dismiss` | domain done; native scheduler TODO ([alarm strategy](alarm-strategy.md)) |
 | Sleep-cycle times (sleepyti.me math): wake options when going to bed now, and bedtimes for each alarm | `alarm.dismiss` | domain done; Alarms screen shows both; bedtime nudge notification TODO   |
-| Routines: ordered or any-order steps, each bound to a sticker or manual                               | `routine.step`  | domain done; screen demo works; persistence TODO                         |
+| Routines: ordered or any-order steps, each bound to a sticker or manual                               | `routine.step`  | domain done; runs persist on device (expo-sqlite); routine editing TODO  |
 | Focus mode (Brick-style app blocking toggled at the desk sticker)                                     | `focus.toggle`  | action defined; Screen Time / Android blocking TODO                      |
 | Timers ("just 10 minutes", pomodoro, body-doubling)                                                   | `timer.start`   | action defined                                                           |
 | Event log (water, meds taken — with a double-dose guard)                                              | `log.event`     | action defined                                                           |
 | Business cards: sticker on a paper card or on its own                                                 | `card.open`     | card page + vCard done; editing TODO                                     |
-| Write and register stickers from the phone                                                            | —               | in-app writer done (needs device); registry persistence TODO             |
+| Write and register stickers from the phone                                                            | —               | in-app writer done (needs device); registry persists (expo-sqlite)       |
 
 ## Backlog of ideas
 

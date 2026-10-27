@@ -7,10 +7,12 @@ import {
   progress,
   remainingSteps,
   startRun,
+  type RoutineRun,
   type RoutineStep,
   type TapResult,
 } from "@tap/core";
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Banner, type BannerProps } from "@/components/banner";
@@ -23,6 +25,7 @@ import { Screen } from "@/components/screen";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { loadRun, saveRun } from "@/lib/run-store";
 
 const routine = demoRoutines[0]!;
 
@@ -137,8 +140,34 @@ function StepRow({ step, number, state, isLast, onAct }: StepRowProps) {
 }
 
 export default function RoutinesScreen() {
-  const [run, setRun] = useState(() => startRun(routine));
+  const [run, setRun] = useState<RoutineRun | null>(null);
   const [last, setLast] = useState<BannerProps | null>(null);
+
+  // Reload whenever the tab gains focus: a sticker tap advances the run on the tag screen.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void loadRun(routine.id).then((stored) => {
+        if (!cancelled) setRun(stored ?? startRun(routine));
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  if (!run) return <Screen eyebrow="Routine" title={routine.name} />;
+  return <RoutineBody run={run} setRun={setRun} last={last} setLast={setLast} />;
+}
+
+type RoutineBodyProps = {
+  run: RoutineRun;
+  setRun: (run: RoutineRun) => void;
+  last: BannerProps | null;
+  setLast: (last: BannerProps | null) => void;
+};
+
+function RoutineBody({ run, setRun, last, setLast }: RoutineBodyProps) {
   const { done, total, fraction } = progress(routine, run);
   const current = currentStep(routine, run);
   const finished = current === null;
@@ -150,6 +179,7 @@ export default function RoutinesScreen() {
   const apply = (result: TapResult) => {
     setRun(result.run);
     setLast(feedback(result));
+    void saveRun(result.run);
   };
 
   return (
@@ -202,8 +232,10 @@ export default function RoutinesScreen() {
         icon="restart"
         title="Start over"
         onPress={() => {
-          setRun(startRun(routine));
+          const fresh = startRun(routine);
+          setRun(fresh);
           setLast(null);
+          void saveRun(fresh);
         }}
       />
     </Screen>

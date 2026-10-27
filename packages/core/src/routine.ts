@@ -1,11 +1,15 @@
-import type { Routine, RoutineStep } from "./schemas";
+import { z } from "zod";
 
-export type RoutineRun = {
-  routineId: string;
-  startedAt: string;
-  completedStepIds: string[];
-  finishedAt: string | null;
-};
+import { IsoDateSchema, type Routine, type RoutineStep } from "./schemas";
+
+/** One pass through a routine. Apps persist the active run per routine so taps add up. */
+export const RoutineRunSchema = z.object({
+  routineId: z.string().min(1),
+  startedAt: IsoDateSchema,
+  completedStepIds: z.array(z.string().min(1)).default([]),
+  finishedAt: IsoDateSchema.nullable().default(null),
+});
+export type RoutineRun = z.infer<typeof RoutineRunSchema>;
 
 export type TapResult =
   | { result: "advanced"; run: RoutineRun; step: RoutineStep }
