@@ -5,7 +5,7 @@ function escape(value: string): string {
     .replace(/\\/g, "\\\\")
     .replace(/\r?\n/g, "\\n")
     .replace(/,/g, "\\,")
-    .replace(/;/g, "\;");
+    .replace(/;/g, "\\;");
 }
 
 function splitName(name: string): { first: string; last: string } {

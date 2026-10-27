@@ -21,9 +21,18 @@ describe("toVCard", () => {
     expect(vcard).toContain("N:Ravichander;Kritika;;;\r\n");
     expect(vcard).toContain("FN:Kritika Ravichander\r\n");
     expect(vcard).toContain("ORG:Cadre\\, Inc.\r\n");
-    expect(vcard).toContain("NOTE:Met at the NFC meetup\; likes stickers\r\n");
+    expect(vcard).toContain("NOTE:Met at the NFC meetup\\; likes stickers\r\n");
     expect(vcard).toContain("URL;TYPE=LinkedIn:https://linkedin.com/in/kritika\r\n");
     expect(vcard.endsWith("END:VCARD\r\n")).toBe(true);
+  });
+
+  it("escapes semicolons in structured fields", () => {
+    const vcard = toVCard(
+      CardSchema.parse({ slug: "sam", name: "Sam O'Hare; Esq.", company: "A;B Labs" }),
+    );
+    expect(vcard).toContain("N:Esq.;Sam O'Hare\\;;;;\r\n");
+    expect(vcard).toContain("FN:Sam O'Hare\\; Esq.\r\n");
+    expect(vcard).toContain("ORG:A\\;B Labs\r\n");
   });
 
   it("handles a single-word name and omits empty fields", () => {
