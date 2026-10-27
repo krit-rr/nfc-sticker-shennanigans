@@ -8,6 +8,8 @@ import {
   progress,
   ringTimes,
   startRun,
+  TagSchema,
+  type Action,
   type Alarm,
   type Tag,
   type TapResult,
@@ -15,14 +17,15 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
 
 import { Banner } from "@/components/banner";
 import { Button } from "@/components/button";
 import { IconTile } from "@/components/icon-tile";
 import { Screen } from "@/components/screen";
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { actionVisual, describeAction } from "@/lib/actions";
 import { scheduler } from "@/lib/alarm-scheduler";
 import { loadAlarms, saveAlarms } from "@/lib/alarm-store";
@@ -52,9 +55,17 @@ export default function TagTappedScreen() {
     };
   }, [tagId]);
 
-  if (!tagId) return <UnknownSticker raw={raw} />;
+  if (!tagId) return <UnknownSticker raw={raw} tagId={null} />;
   if (!lookup || lookup.id !== tagId) return <Screen />;
-  if (!lookup.tag) return <UnknownSticker raw={raw} />;
+  if (!lookup.tag) {
+    return (
+      <UnknownSticker
+        raw={raw}
+        tagId={tagId}
+        onRegistered={(tag) => setLookup({ id: tagId, tag })}
+      />
+    );
+  }
 
   const tag = lookup.tag;
   const visual = actionVisual(tag.action);
@@ -75,25 +86,123 @@ export default function TagTappedScreen() {
   );
 }
 
-function UnknownSticker({ raw }: { raw: string | undefined }) {
+type UnknownStickerProps = {
+  raw: string | undefined;
+  /** The normalized id when the link held a valid one, so the sticker can be registered. */
+  tagId: string | null;
+  onRegistered?: (tag: Tag) => void;
+};
+
+function UnknownSticker({ raw, tagId, onRegistered }: UnknownStickerProps) {
   return (
     <Screen>
       <View style={styles.hero}>
         <IconTile icon="question" tone="neutral" size={76} />
         <ThemedText type="title" style={styles.centered} accessibilityRole="header">
-          Unknown sticker
+          {tagId ? "New sticker" : "Unknown sticker"}
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.centered}>
-          This sticker is not registered on this phone yet.
+          {tagId
+            ? "This sticker is not registered on this phone yet. Give it a job:"
+            : "The link on this sticker has no valid id in it."}
         </ThemedText>
       </View>
-      <Banner
-        tone="neutral"
-        icon="info"
-        text={raw ? `Its id is ${raw}.` : "The link had no id in it."}
-      />
-      <PrototypeNote>Next: offer to register it here and pick what it does.</PrototypeNote>
+      {tagId && onRegistered ? (
+        <RegisterSticker tagId={tagId} onRegistered={onRegistered} />
+      ) : (
+        <Banner
+          tone="neutral"
+          icon="info"
+          text={raw ? `The link said "${raw}".` : "The link had no id in it."}
+        />
+      )}
     </Screen>
+  );
+}
+
+/** What a fresh sticker can become, right here. Routine steps and cards are set up on their own screens. */
+const REGISTER_CHOICES = [
+  { key: "alarm", title: "Alarm anchor", action: { kind: "alarm.dismiss" } },
+  { key: "focus", title: "Focus toggle", action: { kind: "focus.toggle" } },
+  { key: "log", title: "Log an event", action: null },
+  { key: "timer", title: "10 min timer", action: { kind: "timer.start", minutes: 10 } },
+] as const;
+type RegisterChoiceKey = (typeof REGISTER_CHOICES)[number]["key"];
+
+function RegisterSticker({
+  tagId,
+  onRegistered,
+}: {
+  tagId: string;
+  onRegistered: (tag: Tag) => void;
+}) {
+  const theme = useTheme();
+  const [label, setLabel] = useState("");
+  const [choice, setChoice] = useState<RegisterChoiceKey>("alarm");
+  const [saving, setSaving] = useState(false);
+  const trimmed = label.trim();
+
+  const register = async () => {
+    const picked = REGISTER_CHOICES.find((candidate) => candidate.key === choice)!;
+    // "Log an event" logs the sticker's own name: a "Water bottle" sticker logs "water bottle".
+    const action: Action = picked.action ?? { kind: "log.event", event: trimmed.toLowerCase() };
+    const tag = TagSchema.parse({
+      id: tagId,
+      label: trimmed,
+      action,
+      createdAt: new Date().toISOString(),
+    });
+    setSaving(true);
+    try {
+      await registry.upsert(tag);
+      onRegistered(tag);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={styles.form}>
+      <TextInput
+        value={label}
+        onChangeText={setLabel}
+        placeholder="Name it after where it lives (Bathroom mirror…)"
+        placeholderTextColor={theme.textTertiary}
+        autoFocus
+        maxLength={40}
+        accessibilityLabel="Sticker name"
+        style={[
+          styles.input,
+          {
+            borderColor: theme.border,
+            color: theme.text,
+            backgroundColor: theme.backgroundElement,
+          },
+        ]}
+      />
+      <View style={styles.choices}>
+        {REGISTER_CHOICES.map((candidate) => (
+          <Button
+            key={candidate.key}
+            size="sm"
+            variant={choice === candidate.key ? "primary" : "secondary"}
+            title={candidate.title}
+            onPress={() => setChoice(candidate.key)}
+          />
+        ))}
+      </View>
+      <Button
+        fullWidth
+        icon="sticker"
+        title="Register sticker"
+        disabled={trimmed.length === 0 || saving}
+        onPress={() => void register()}
+      />
+      <ThemedText type="small" themeColor="textTertiary" style={styles.centered}>
+        Stickers are pointers: you can give <ThemedText type="code">{tagId}</ThemedText> a different
+        job later without rewriting it.
+      </ThemedText>
+    </View>
   );
 }
 
@@ -266,4 +375,14 @@ function RoutineStepOutcome({ tag, routineId }: { tag: Tag; routineId: string })
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: Spacing.two, paddingVertical: Spacing.four },
   centered: { textAlign: "center" },
+  form: { gap: Spacing.three },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.md,
+    borderCurve: "continuous",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  choices: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
 });

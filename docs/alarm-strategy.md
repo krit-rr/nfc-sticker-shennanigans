@@ -76,9 +76,17 @@ document store under the domain alarm's id), the alert's secondary button is "I'
 every enabled alarm is rescheduled from the domain model at launch. **Not yet validated on a physical
 iPhone** — Stop-then-re-ring, authorization, and the secondary button all need a device pass.
 Keep `@klyftig/alarm-kit` as the backup: its Stop-re-ring is our nag chain in one call, worth
-revisiting once it has device mileage. Android stays the planned small Kotlin module
-(`setAlarmClock` + full-screen intent); check `rn-native-alarmkit`'s Android half for reference
-before writing it.
+revisiting once it has device mileage.
+
+**Android is wired too:** the local Expo module in `apps/mobile/modules/tap-alarm` (Kotlin). Each
+ring is one `AlarmManager.setAlarmClock()` exact alarm (inexact fallback if the user revokes the
+permission on API 31-32); firing starts a foreground service that loops the default alarm tone on
+the alarm stream behind a full-screen notification whose "Stop this ring" action silences that ring
+only. Rings time out after 9 minutes, matching AlarmKit's postAlert. The module's manifest carries
+the permissions (`USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`, `POST_NOTIFICATIONS`, foreground
+service); the scheduler requests the notification permission before the first schedule.
+**Not yet validated on a physical Android phone** — the full-screen alert over the lock screen,
+DND behavior, and the NDEF-tap dismiss all need a device pass.
 
 If the first try disappoints, an Expo Module in Swift wrapping `AlarmManager.schedule(id:configuration:)`
 is ~200 lines, and it keeps the presentation strings and buttons under our control.
