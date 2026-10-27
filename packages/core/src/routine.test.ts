@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { applyTap, completeStep, currentStep, progress, startRun } from "./routine";
+import {
+  RoutineRunSchema,
+  applyTap,
+  completeStep,
+  currentStep,
+  progress,
+  startRun,
+} from "./routine";
 import { RoutineSchema } from "./schemas";
 
 const morning = RoutineSchema.parse({
@@ -59,5 +66,18 @@ describe("unordered routine", () => {
     expect(result.result).toBe("advanced");
     expect(result.run.completedStepIds).toEqual(["teeth"]);
     expect(currentStep(anyOrder, result.run)?.id).toBe("meds");
+  });
+});
+
+describe("RoutineRunSchema", () => {
+  it("round-trips a run through JSON, as the apps persist it", () => {
+    const run = applyTap(morning, startRun(morning, now), "aaaaaaaa", now).run;
+    expect(RoutineRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual(run);
+  });
+
+  it("rejects a run with a bad timestamp", () => {
+    expect(
+      RoutineRunSchema.safeParse({ routineId: "morning", startedAt: "yesterday" }).success,
+    ).toBe(false);
   });
 });

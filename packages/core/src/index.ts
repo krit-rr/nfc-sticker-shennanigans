@@ -46,6 +46,7 @@ export {
   type SleepOption,
 } from "./sleep";
 export {
+  RoutineRunSchema,
   applyTap,
   completeStep,
   currentStep,

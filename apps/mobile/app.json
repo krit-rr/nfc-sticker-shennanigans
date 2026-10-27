@@ -69,7 +69,8 @@
           "pathPrefix": "/t/"
         }
       ],
-      "./plugins/with-source-built-expo-modules.js"
+      "./plugins/with-source-built-expo-modules.js",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

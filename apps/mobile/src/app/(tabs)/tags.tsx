@@ -1,7 +1,7 @@
 import { buildTagUrl, parseTapUrl, type Tag } from "@tap/core";
 import { CHIPS, fitsOn } from "@tap/ndef";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { Banner, type BannerProps } from "@/components/banner";
@@ -97,9 +97,18 @@ export default function TagsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<BannerProps | null>(null);
 
-  useEffect(() => {
-    void registry.list().then(setTags);
-  }, []);
+  // Reload on focus: the registry persists now, and other screens can register stickers.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void registry.list().then((stored) => {
+        if (!cancelled) setTags(stored);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const open = (tagId: string) => router.push({ pathname: "/t/[tagId]", params: { tagId } });
 

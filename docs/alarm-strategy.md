@@ -54,19 +54,28 @@ The first ring sits on the cycle boundary; nag follow-ups come after it, so the 
 earlier than the boundary you chose. Still to do: a wind-down notification at the in-bed time of the
 recommended bedtime, and disabling one-shot alarms after they have been dismissed.
 
-## Native module candidates (npm, September 2026)
+## Native module candidates (evaluated from npm metadata + readmes, 2026-10-27)
 
-None has been tried in this repo yet. Evaluate: last publish date, Expo config plugin, new-architecture
-support, whether it exposes `alarmUpdates`/state so the app can react to Stop.
+None has been run on a device from this repo yet — that validation is still the gate. Criteria: last
+publish date, Expo compatibility, whether it exposes alarm state/Stop events so the app can react, and
+whether it degrades to a no-op below iOS 26.
 
-- `expo-alarm-kit` — Expo module, "schedule native alarms with optional app launch on dismissal".
-- `@klyftig/alarm-kit` — Expo module, schedule/cancel/stop, authorization, alerting query.
-- `react-native-ios-alarmkit` — Nitro module, includes Live Activity support.
-- `react-native-nitro-ios-alarm-kit` — Nitro module.
-- `rn-native-alarmkit` — claims AlarmKit + Android AlarmManager in one API.
+| Package                                   | Last publish | Shape                           | Notes                                                                                                                                                                                                |
+| ----------------------------------------- | ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `react-native-ios-alarmkit` 1.0.0         | Oct 2026     | Nitro module (iOS only)         | Hooks + event listeners for alarm state, opt-in saved stop/dismiss events, Live Activities, silent no-op on Android and iOS < 26, Expo supported. Adds `react-native-nitro-modules`.                 |
+| `@klyftig/alarm-kit` 0.2.0                | Oct 2026     | Expo module (iOS only)          | Has the exact nag primitive: Stop can re-ring after N s up to K times, plus `consumeStopped()`. But readme says it has **never run on a physical iPhone**; config plugin lives in a sibling package. |
+| `expo-alarm-kit` 0.1.11                   | Apr 2026     | Expo module (iOS only)          | App-launch on dismiss/snooze intents, App Groups state. Stale half a year; wants manual Xcode deployment-target edits, which fights `expo prebuild`.                                                 |
+| `react-native-nitro-ios-alarm-kit` 1.0.41 | May 2026     | Nitro module (iOS only)         | Schedule/stop, custom sounds; aimed at meditation timers, no Stop-event surface in the readme.                                                                                                       |
+| `rn-native-alarmkit` 0.1.13               | Nov 2025     | RN module, claims iOS + Android | One API over AlarmKit and AlarmManager with notification fallbacks — right shape for us eventually, but the oldest and the fallback can silently downgrade to notifications.                         |
 
-If none fit, an Expo Module in Swift wrapping `AlarmManager.schedule(id:configuration:)` is ~200 lines,
-and it keeps the presentation strings and buttons under our control.
+**Plan:** try `react-native-ios-alarmkit` first — freshest, built for Expo, and its state/stop events
+are what `scheduler.cancel()` and the "rings again at …" UI need. Keep `@klyftig/alarm-kit` as the
+backup: its Stop-re-ring is our nag chain in one call, worth revisiting once it has device mileage.
+Android stays the planned small Kotlin module (`setAlarmClock` + full-screen intent); check
+`rn-native-alarmkit`'s Android half for reference before writing it.
+
+If the first try disappoints, an Expo Module in Swift wrapping `AlarmManager.schedule(id:configuration:)`
+is ~200 lines, and it keeps the presentation strings and buttons under our control.
 
 ## Focus mode (the Brick part)
 

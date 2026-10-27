@@ -1,11 +1,14 @@
 import {
   applyTap,
   buildCardUrl,
+  currentStep,
   demoAlarms,
   demoRoutines,
   normalizeTagId,
+  progress,
   startRun,
   type Tag,
+  type TapResult,
 } from "@tap/core";
 import { useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -21,6 +24,7 @@ import { Spacing } from "@/constants/theme";
 import { actionVisual, describeAction } from "@/lib/actions";
 import { TAG_BASE_URL } from "@/lib/config";
 import { registry } from "@/lib/registry";
+import { loadRun, saveRun } from "@/lib/run-store";
 
 type Lookup = { id: string; tag: Tag | null };
 
@@ -120,27 +124,8 @@ function Outcome({ tag }: { tag: Tag }) {
         </>
       );
     }
-    case "routine.step": {
-      const routine = demoRoutines.find((candidate) => candidate.id === action.routineId);
-      const result = routine ? applyTap(routine, startRun(routine), tag.id) : null;
-      const ok = result?.result === "advanced" || result?.result === "finished";
-      return (
-        <>
-          <Banner
-            tone={ok ? "success" : "warning"}
-            icon={ok ? "checkCircle" : "warning"}
-            text={
-              !routine
-                ? "That routine no longer exists."
-                : result?.result === "wrong-tag"
-                  ? `Not yet. First: ${result.expected.title}.`
-                  : `${routine.name}: step checked off.`
-            }
-          />
-          <PrototypeNote>this starts a fresh run each time until runs are saved.</PrototypeNote>
-        </>
-      );
-    }
+    case "routine.step":
+      return <RoutineStepOutcome tag={tag} routineId={action.routineId} />;
     case "card.open": {
       const url = buildCardUrl(TAG_BASE_URL, action.slug);
       return (
@@ -175,6 +160,70 @@ function Outcome({ tag }: { tag: Tag }) {
         </>
       );
   }
+}
+
+/**
+ * Applies the tap to the routine's persisted run — this is the real thing, not a demo:
+ * the Routines tab reloads the same run when it regains focus.
+ */
+function RoutineStepOutcome({ tag, routineId }: { tag: Tag; routineId: string }) {
+  const routine = demoRoutines.find((candidate) => candidate.id === routineId) ?? null;
+  const [result, setResult] = useState<TapResult | null>(null);
+
+  useEffect(() => {
+    if (!routine) return;
+    let cancelled = false;
+    void (async () => {
+      const run = (await loadRun(routine.id)) ?? startRun(routine);
+      const outcome = applyTap(routine, run, tag.id);
+      if (outcome.result === "advanced" || outcome.result === "finished") {
+        await saveRun(outcome.run);
+      }
+      if (!cancelled) setResult(outcome);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [routine, tag.id]);
+
+  if (!routine) {
+    return <Banner tone="warning" icon="warning" text="That routine no longer exists." />;
+  }
+  if (!result) return null;
+
+  const next = currentStep(routine, result.run);
+  const ok = result.result === "advanced" || result.result === "finished";
+  const neutral = result.result === "already-done" || result.result === "already-finished";
+  const text = (() => {
+    switch (result.result) {
+      case "advanced":
+        return `${result.step.title}: done.${next ? ` Next: ${next.title}.` : ""}`;
+      case "finished":
+        return `${result.step.title}: done. That was the last one.`;
+      case "wrong-tag":
+        return `Not yet. First: ${result.expected.title}.`;
+      case "already-done":
+        return `${result.step.title} is already done.${next ? ` Next: ${next.title}.` : ""}`;
+      case "already-finished":
+        return `${routine.name} is already finished. Start it over on the Routines tab.`;
+      case "unknown-tag":
+        return "This sticker is no longer a step in that routine.";
+    }
+  })();
+  const { done, total } = progress(routine, result.run);
+
+  return (
+    <>
+      <Banner
+        tone={ok ? "success" : neutral ? "neutral" : "warning"}
+        icon={ok ? "checkCircle" : neutral ? "info" : "warning"}
+        text={text}
+      />
+      <ThemedText type="small" themeColor="textTertiary" style={styles.centered}>
+        {routine.name}: {done} of {total} done.
+      </ThemedText>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

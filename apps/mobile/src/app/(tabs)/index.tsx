@@ -1,6 +1,5 @@
 import {
   FALL_ASLEEP_MINUTES,
-  demoAlarms,
   demoTags,
   fallAsleepTimesFor,
   nextOccurrence,
@@ -11,7 +10,7 @@ import {
   type Alarm,
   type SleepOption,
 } from "@tap/core";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, Switch, View } from "react-native";
 import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 
@@ -26,6 +25,7 @@ import { Fonts, Radius, Spacing } from "@/constants/theme";
 import { useNow } from "@/hooks/use-now";
 import { useTheme } from "@/hooks/use-theme";
 import { loggingScheduler } from "@/lib/alarm-scheduler";
+import { loadAlarms, saveAlarms } from "@/lib/alarm-store";
 import { clock, clockDate, clockParts, countdown, weekdayShort } from "@/lib/format";
 
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -274,9 +274,25 @@ function AlarmCard({ alarm, now, onToggle, onRemove }: AlarmCardProps) {
 
 export default function AlarmsScreen() {
   const now = useNow();
-  const [alarms, setAlarms] = useState<Alarm[]>(demoAlarms);
+  const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [lastSetId, setLastSetId] = useState<string | null>(null);
   const upcoming = soonestAlarm(alarms, now);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadAlarms().then((stored) => {
+      if (!cancelled) setAlarms(stored);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Single write path: every change renders and persists the same list. */
+  const update = (next: Alarm[]) => {
+    setAlarms(next);
+    void saveAlarms(next);
+  };
 
   const addSleepAlarm = (option: SleepOption) => {
     const alarm = oneShotAlarmAt(option.time, {
@@ -285,7 +301,7 @@ export default function AlarmsScreen() {
       dismissTagId: anchorTag?.id ?? null,
       nag: { everyMinutes: 3, times: 5 },
     });
-    setAlarms((current) => [alarm, ...current.filter((existing) => existing.id !== alarm.id)]);
+    update([alarm, ...alarms.filter((existing) => existing.id !== alarm.id)]);
     setLastSetId(alarm.id);
     const first = nextOccurrence(alarm, new Date());
     if (first) void loggingScheduler.schedule(alarm, ringTimes(alarm, first));
@@ -293,7 +309,7 @@ export default function AlarmsScreen() {
 
   const toggle = (id: string, enabled: boolean) => {
     const updated = alarms.map((alarm) => (alarm.id === id ? { ...alarm, enabled } : alarm));
-    setAlarms(updated);
+    update(updated);
     const alarm = updated.find((candidate) => candidate.id === id);
     const first = alarm ? nextOccurrence(alarm, new Date()) : null;
     if (alarm && first) void loggingScheduler.schedule(alarm, ringTimes(alarm, first));
@@ -301,7 +317,7 @@ export default function AlarmsScreen() {
   };
 
   const remove = (id: string) => {
-    setAlarms((current) => current.filter((alarm) => alarm.id !== id));
+    update(alarms.filter((alarm) => alarm.id !== id));
     void loggingScheduler.cancel(id);
   };
 
