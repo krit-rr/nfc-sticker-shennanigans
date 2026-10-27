@@ -10,3 +10,4 @@ apps/mobile/android
 *.sh
 apps/mobile/expo-env.d.ts
 apps/mobile/.expo
+apps/mobile/modules/*/android/build/
